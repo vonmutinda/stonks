@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
-	"os"  
+	"os"
+
+	"stonk/cmd"
 )
 
 func main() {
