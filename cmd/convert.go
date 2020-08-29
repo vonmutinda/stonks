@@ -157,6 +157,7 @@ func convert() {
 			fmt.Printf("%v %v\n", res.To, res.Result)
 			os.Exit(0)
 		case <-ctx.Done():
+			// both conversion services must have failed or took too long
 			os.Exit(1)
 		}
 	}
