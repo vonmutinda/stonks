@@ -42,9 +42,9 @@ func init() {
 
 	rootCmd.AddCommand(convertCMD)
 
-	convertCMD.Flags().StringVarP(&From, "from", "f", "", "Input currency is required. eg. KES")
-	convertCMD.Flags().StringVarP(&To, "to", "t", "", "Input currency is required. eg. KES")
-	convertCMD.Flags().StringVarP(&Amount, "amount", "a", "", "Input currency is required. eg. KES")
+	convertCMD.Flags().StringVarP(&From, "from", "f", "", "From is required. eg. KES")
+	convertCMD.Flags().StringVarP(&To, "to", "t", "", "To is required. eg. USD")
+	convertCMD.Flags().StringVarP(&Amount, "amount", "a", "", "Amount is required. eg. 100")
 
 	convertCMD.MarkFlagRequired("from")
 	convertCMD.MarkFlagRequired("to")
@@ -80,6 +80,7 @@ func convert() {
 
 	// use timeout context
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+
 	defer cancel()
 
 	// Make two concurrent requests for currency conversion.
