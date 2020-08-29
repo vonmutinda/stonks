@@ -73,7 +73,7 @@ func run() {
 			log.Fatalf("cannot read record from csv : %v", err)
 		}
 
-		currencies[val[2]] = struct {Country, Currency, Code string} { val[0], val[1], val[2] }
+		currencies[val[2]] = struct{ Country, Currency, Code string }{val[0], val[1], val[2]}
 	}
 
 	// 3. search for requested currency
