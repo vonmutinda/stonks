@@ -63,7 +63,7 @@ func init() {
 
 // Service -
 type Service struct {
-	URL, From, To, Amount, Result string
+	Name, URL, From, To, Amount, Result string
 }
 
 func convert() {
@@ -78,12 +78,12 @@ func convert() {
 	)
 
 	payload := []Service{
-		{URL: fmt.Sprintf(currencyLayerURL, cAPI, From, To, Amount), From: From, To: To, Amount: Amount},
-		{URL: fmt.Sprintf(fixerURL, fixerAPI, From, To, Amount), From: From, To: To, Amount: Amount},
+		{Name: "Currency Layer", URL: fmt.Sprintf(currencyLayerURL, cAPI, From, To, Amount), From: From, To: To, Amount: Amount},
+		{Name: "Fixer.io", URL: fmt.Sprintf(fixerURL, fixerAPI, From, To, Amount), From: From, To: To, Amount: Amount},
 	}
 
 	// use timeout context
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
 	defer cancel()
 
@@ -92,25 +92,25 @@ func convert() {
 	for _, k := range payload {
 
 		go func(ct context.Context, val Service, result chan Service) {
+			// log behavior of the service
 
 			// check if requested currencies are supported
 			if query(val.From) != true || query(val.To) != true {
-				fmt.Printf("from %v. to %v\n", val.From, val.To)
-				log.Fatalf("failed. conversion for the currencies not supported")
+				fmt.Printf("[%v] failed. conversion for the currencies not supported\n", val.Name)
 			}
 
 			// prepare the request
 			req, err := http.NewRequest(http.MethodGet, val.URL, nil)
 
 			if err != nil {
-				log.Fatalf("cannot prepare request. %v", err)
+				fmt.Printf("[%v] cannot prepare request. %v\n", val.Name, err)
 			}
 
 			// make the request for currency conversion
 			res, err := client.Do(req)
 
 			if err != nil {
-				log.Fatalf("cannot make request. %v", err)
+				fmt.Printf("[%v] cannot make request. %v", val.Name, err)
 			}
 
 			defer res.Body.Close()
@@ -121,32 +121,32 @@ func convert() {
 			// fmt.Printf("data : %s\n\n", data)
 
 			if err != nil {
-				log.Fatalf("cannot read response data. %v", err)
+				fmt.Printf("[%v] cannot read response data. %v", val.Name, err)
 			}
 
 			// check status
 			status, err := jsonparser.GetBoolean(data, "success")
 
 			if err != nil {
-				log.Fatalf("cannot read success status. %v", err)
+				fmt.Printf("[%v] cannot read success status. %v", val.Name, err)
 			}
 
 			// read error response
 			erresp, err := jsonparser.GetString(data, "error", "info")
 
 			if err != nil {
-				log.Fatalf("cannot read info key in error body. %v", err)
+				fmt.Printf("[%v] cannot read info key in error body. %v", val.Name, err)
 			}
 
 			if status != true {
-				fmt.Printf("Conversion failed. %v\n", erresp)
+				fmt.Printf("[%v] Conversion failed. %v\n", val.Name, erresp)
 			}
 
 			// read data
 			rslt, err := jsonparser.GetString(data, "result")
 
 			if err != nil {
-				fmt.Printf("cannot read conversion result. %v\n", err)
+				fmt.Printf("[%v] cannot read conversion result. %v\n", val.Name, err)
 			}
 
 			// if there's a returned result
@@ -169,7 +169,7 @@ func convert() {
 			os.Exit(0)
 		case <-ctx.Done():
 			// both conversion services must have failed or took too long
-			os.Exit(1)
+			log.Fatalf("Conversion service timed out!") 
 		}
 	}
 

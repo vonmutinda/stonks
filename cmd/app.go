@@ -24,9 +24,7 @@ var appCmd = &cobra.Command{
 
 // CCC - country currency code
 type CCC struct {
-	Country  string
-	Currency string
-	Code     string
+	Country, Currency, Code string
 }
 
 // Global variables
