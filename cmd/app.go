@@ -13,7 +13,7 @@ import (
 )
 
 var appCmd = &cobra.Command{
-	Use:     "App",
+	Use:     "app",
 	Aliases: []string{"app", "a"},
 	Short:   "Start App",
 	Long:    `Initiate a session with Stonk`,
@@ -22,10 +22,17 @@ var appCmd = &cobra.Command{
 	},
 }
 
+// CCC - country currency code
+type CCC struct {
+	Country  string
+	Currency string
+	Code     string
+}
+
 // Global variables
 var (
-	Currency   string
-	currencies = make(map[string]interface{})
+	currency   string
+	Currencies = make(map[string]CCC)
 )
 
 // this url represents an up-to-date source of supported currencies for our stonks application
@@ -38,21 +45,37 @@ func init() {
 
 	rootCmd.AddCommand(appCmd)
 
-	appCmd.Flags().StringVarP(&Currency, "currency", "c", "", "Input currency is required. eg. USD")
+	appCmd.Flags().StringVarP(&currency, "currency", "c", "", "Input currency is required. eg. USD")
 	appCmd.MarkFlagRequired("currency")
+
+	// load supported currencies
+	if err := load(); err != nil {
+		log.Fatalf("could not fetch supported currencies : %v", err)
+	}
 }
 
 // run CLI app
 func run() {
 
 	// We could check if the passed in value is a string but that won't be neccessary
-	fmt.Printf("Processing %v please wait ...\n", Currency)
+	fmt.Printf("Processing %v please wait ...\n\n", currency)
+
+	// 3. search for requested currency
+	if query(currency) != true {
+		log.Fatalf("Currency %v NOT supported.\n", currency)
+	}
+
+	log.Printf("Currency %v is supported.\n", currency)
+}
+
+// load supported currencies
+func load() error {
 
 	// 1. download the csv file
 	res, err := http.Get(supportedCurrencyURL)
 
 	if err != nil {
-		log.Fatalf("could not fetch supported currencies : %v", err)
+		return err
 	}
 
 	defer res.Body.Close()
@@ -70,32 +93,26 @@ func run() {
 
 		// any other internal error
 		if err != nil {
-			log.Fatalf("cannot read record from csv : %v", err)
+			return err
 		}
 
-		currencies[val[2]] = struct{ Country, Currency, Code string }{val[0], val[1], val[2]}
+		if len(val[2]) == 3 {
+			Currencies[val[2]] = CCC{val[0], val[1], val[2]}
+		}
 	}
 
-	// 3. search for requested currency
-	result, err := queryCurrency(Currency)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println(result)
-
+	return nil
 }
 
 // queries from cache/db wether provided currency is supported
-func queryCurrency(param string) (string, error) {
+func query(param string) bool {
 
-	param = strings.ToUpper(Currency) // convert to uppercase
+	param = strings.ToUpper(param) // convert to uppercase
 
-	if _, ok := currencies[param]; !ok {
+	if _, ok := Currencies[param]; !ok {
 
-		return "", fmt.Errorf("currency %v not supported", param)
+		return false
 	}
 
-	return fmt.Sprintf("Currency supported : %+v", currencies[param]), nil
+	return true
 }

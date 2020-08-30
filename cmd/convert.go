@@ -15,7 +15,7 @@ import (
 )
 
 var convertCMD = &cobra.Command{
-	Use:     "Convert",
+	Use:     "convert",
 	Aliases: []string{"convert", "c"},
 	Short:   "Currency conversion service",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -49,29 +49,33 @@ func init() {
 	convertCMD.MarkFlagRequired("from")
 	convertCMD.MarkFlagRequired("to")
 	convertCMD.MarkFlagRequired("amount")
-}
-
-// Service -
-type Service struct {
-	URL    string
-	From   string
-	To     string
-	Amount string
-	Result string
-}
-
-func convert() {
-
-	var done = make(chan Service)
-	var client = http.DefaultClient
 
 	// load .env variable
 	if err := godotenv.Load(); err != nil {
 		log.Fatalf("cannot load .env file. %v", err)
 	}
 
-	cAPI := os.Getenv("CLKey")
-	fixerAPI := os.Getenv("FKey")
+	// fetch supported currencies
+	if err := load(); err != nil {
+		log.Fatalf("could not load supported currencies : %v", err)
+	}
+}
+
+// Service -
+type Service struct {
+	URL, From, To, Amount, Result string
+}
+
+func convert() {
+
+	var (
+		cAPI     = os.Getenv("CLKey")
+		fixerAPI = os.Getenv("FKey")
+
+		done = make(chan Service)
+
+		client = http.DefaultClient
+	)
 
 	payload := []Service{
 		{URL: fmt.Sprintf(currencyLayerURL, cAPI, From, To, Amount), From: From, To: To, Amount: Amount},
@@ -90,16 +94,9 @@ func convert() {
 		go func(ct context.Context, val Service, result chan Service) {
 
 			// check if requested currencies are supported
-			_, err := queryCurrency(val.From)
-
-			if err != nil {
-				log.Fatalf("conversion failed. %v", err)
-			}
-
-			_, err = queryCurrency(val.To)
-
-			if err != nil {
-				log.Fatalf("conversion failed. %v", err)
+			if query(val.From) != true || query(val.To) != true {
+				fmt.Printf("from %v. to %v\n", val.From, val.To)
+				log.Fatalf("failed. conversion for the currencies not supported")
 			}
 
 			// prepare the request
@@ -142,14 +139,14 @@ func convert() {
 			}
 
 			if status != true {
-				log.Printf("Conversion failed. %v", erresp)
+				fmt.Printf("Conversion failed. %v\n", erresp)
 			}
 
 			// read data
 			rslt, err := jsonparser.GetString(data, "result")
 
 			if err != nil {
-				log.Printf("cannot read conversion result. %v", err)
+				fmt.Printf("cannot read conversion result. %v\n", err)
 			}
 
 			// if there's a returned result
