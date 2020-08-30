@@ -38,7 +38,7 @@ func init() {
 
 	rootCmd.AddCommand(appCmd)
 
-	appCmd.Flags().StringVarP(&Currency, "currency", "c", "", "Input currency is required. eg. KES")
+	appCmd.Flags().StringVarP(&Currency, "currency", "c", "", "Input currency is required. eg. USD")
 	appCmd.MarkFlagRequired("currency")
 }
 

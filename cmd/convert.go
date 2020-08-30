@@ -89,18 +89,31 @@ func convert() {
 
 		go func(ct context.Context, val Service, result chan Service) {
 
+			// check if requested currencies are supported
+			_, err := queryCurrency(val.From)
+
+			if err != nil {
+				log.Fatalf("conversion failed. %v", err)
+			}
+
+			_, err = queryCurrency(val.To)
+
+			if err != nil {
+				log.Fatalf("conversion failed. %v", err)
+			}
+
 			// prepare the request
 			req, err := http.NewRequest(http.MethodGet, val.URL, nil)
 
 			if err != nil {
-				log.Printf("cannot prepare request. %v", err)
+				log.Fatalf("cannot prepare request. %v", err)
 			}
 
 			// make the request for currency conversion
 			res, err := client.Do(req)
 
 			if err != nil {
-				log.Printf("cannot make request. %v", err)
+				log.Fatalf("cannot make request. %v", err)
 			}
 
 			defer res.Body.Close()
@@ -111,21 +124,21 @@ func convert() {
 			// fmt.Printf("data : %s\n\n", data)
 
 			if err != nil {
-				log.Printf("cannot read response data. %v", err)
+				log.Fatalf("cannot read response data. %v", err)
 			}
 
 			// check status
 			status, err := jsonparser.GetBoolean(data, "success")
 
 			if err != nil {
-				log.Printf("cannot read success status. %v", err)
+				log.Fatalf("cannot read success status. %v", err)
 			}
 
 			// read error response
 			erresp, err := jsonparser.GetString(data, "error", "info")
 
 			if err != nil {
-				log.Printf("cannot read info key in error body. %v", err)
+				log.Fatalf("cannot read info key in error body. %v", err)
 			}
 
 			if status != true {
