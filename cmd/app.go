@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 
 	"fmt"
@@ -46,9 +47,14 @@ func init() {
 	appCmd.Flags().StringVarP(&currency, "currency", "c", "", "Input currency is required. eg. USD")
 	appCmd.MarkFlagRequired("currency")
 
-	// load supported currencies
+	// load .env variable
+	if err := godotenv.Load(); err != nil {
+		log.Fatalf("cannot load .env file. %v", err)
+	}
+
+	// fetch supported currencies
 	if err := load(); err != nil {
-		log.Fatalf("could not fetch supported currencies : %v", err)
+		log.Fatalf("could not load supported currencies : %v", err)
 	}
 }
 

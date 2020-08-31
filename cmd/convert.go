@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/buger/jsonparser"
-	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 
@@ -49,16 +48,6 @@ func init() {
 	convertCMD.MarkFlagRequired("from")
 	convertCMD.MarkFlagRequired("to")
 	convertCMD.MarkFlagRequired("amount")
-
-	// load .env variable
-	if err := godotenv.Load(); err != nil {
-		log.Fatalf("cannot load .env file. %v", err)
-	}
-
-	// fetch supported currencies
-	if err := load(); err != nil {
-		log.Fatalf("could not load supported currencies : %v", err)
-	}
 }
 
 // Service -
