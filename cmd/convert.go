@@ -74,6 +74,9 @@ func convert() {
 
 		done = make(chan Service)
 
+		// a buffered channel.
+		errChan = make(chan int, 2)
+
 		client = http.DefaultClient
 	)
 
@@ -83,7 +86,7 @@ func convert() {
 	}
 
 	// use timeout context
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 
 	defer cancel()
 
@@ -91,7 +94,7 @@ func convert() {
 	// whichever returns result first we'll go with that.
 	for _, k := range payload {
 
-		go func(ct context.Context, val Service, result chan Service) {
+		go func(ct context.Context, val Service, result chan Service, eChan chan int) {
 			// log behavior of the service
 
 			// check if requested currencies are supported
@@ -131,15 +134,18 @@ func convert() {
 				fmt.Printf("[%v] cannot read success status. %v", val.Name, err)
 			}
 
-			// read error response
-			erresp, err := jsonparser.GetString(data, "error", "info")
-
-			if err != nil {
-				fmt.Printf("[%v] cannot read info key in error body. %v", val.Name, err)
-			}
-
 			if status != true {
+
+				// read error response
+				erresp, err := jsonparser.GetString(data, "error", "info")
+
+				if err != nil {
+					fmt.Printf("[%v] cannot read info key in error body. %v", val.Name, err)
+				}
+
 				fmt.Printf("[%v] Conversion failed. %v\n", val.Name, erresp)
+
+				eChan <- 1
 			}
 
 			// read data
@@ -157,11 +163,12 @@ func convert() {
 				done <- val
 			}
 
-		}(ctx, k, done)
+		}(ctx, k, done, errChan)
 
 	}
 
 	// listen for results
+	var counter = 0
 	for {
 		select {
 		case res := <-done:
@@ -169,7 +176,14 @@ func convert() {
 			os.Exit(0)
 		case <-ctx.Done():
 			// both conversion services must have failed or took too long
-			log.Fatalf("Conversion service timed out!") 
+			log.Fatalf("Conversion services timed out!")
+		case _, ok := <-errChan:
+			if ok {
+				counter++
+				if counter == 2 {
+					log.Fatalf("All currency conversion services failed") // os.Exit(1)
+				}
+			}
 		}
 	}
 
