@@ -95,72 +95,79 @@ func convert() {
 	for _, k := range payload {
 
 		go func(ct context.Context, val Service, result chan Service, eChan chan int) {
-			// log behavior of the service
 
-			// check if requested currencies are supported
-			if query(val.From) != true || query(val.To) != true {
-				fmt.Printf("[%v] failed. conversion for the currencies not supported\n", val.Name)
-			}
+			// begin a transaction
+			err := func() error {
 
-			// prepare the request
-			req, err := http.NewRequest(http.MethodGet, val.URL, nil)
-
-			if err != nil {
-				fmt.Printf("[%v] cannot prepare request. %v\n", val.Name, err)
-			}
-
-			// make the request for currency conversion
-			res, err := client.Do(req)
-
-			if err != nil {
-				fmt.Printf("[%v] cannot make request. %v", val.Name, err)
-			}
-
-			defer res.Body.Close()
-
-			// read data
-			data, err := ioutil.ReadAll(res.Body)
-
-			// fmt.Printf("data : %s\n\n", data)
-
-			if err != nil {
-				fmt.Printf("[%v] cannot read response data. %v", val.Name, err)
-			}
-
-			// check status
-			status, err := jsonparser.GetBoolean(data, "success")
-
-			if err != nil {
-				fmt.Printf("[%v] cannot read success status. %v", val.Name, err)
-			}
-
-			if status != true {
-
-				// read error response
-				erresp, err := jsonparser.GetString(data, "error", "info")
-
-				if err != nil {
-					fmt.Printf("[%v] cannot read info key in error body. %v", val.Name, err)
+				// check if requested currencies are supported
+				if query(val.From) != true || query(val.To) != true {
+					return fmt.Errorf("[%v] failed. conversion for the currencies not supported", val.Name)
 				}
 
-				fmt.Printf("[%v] Conversion failed. %v\n", val.Name, erresp)
+				// prepare the request
+				req, err := http.NewRequest(http.MethodGet, val.URL, nil)
 
-				eChan <- 1
-			}
+				if err != nil {
+					return fmt.Errorf("[%v] cannot prepare request. %v", val.Name, err)
+				}
 
-			// read data
-			rslt, err := jsonparser.GetString(data, "result")
+				// make the request for currency conversion
+				res, err := client.Do(req)
 
+				if err != nil {
+					return fmt.Errorf("[%v] cannot make request. %v", val.Name, err)
+				}
+
+				defer res.Body.Close()
+
+				// read data
+				data, err := ioutil.ReadAll(res.Body)
+
+				if err != nil {
+					return fmt.Errorf("[%v] cannot read response data. %v", val.Name, err)
+				}
+
+				// check status
+				status, err := jsonparser.GetBoolean(data, "success")
+
+				if err != nil {
+					return fmt.Errorf("[%v] cannot read success status. %v", val.Name, err)
+				}
+
+				if status != true {
+
+					// read error response
+					erresp, err := jsonparser.GetString(data, "error", "info")
+
+					if err != nil {
+						return fmt.Errorf("[%v] cannot read info key in error body. %v", val.Name, err)
+					}
+
+					return fmt.Errorf("[%v] Conversion failed. %v", val.Name, erresp)
+				}
+
+				// read data
+				rslt, err := jsonparser.GetString(data, "result")
+
+				if err != nil {
+					return fmt.Errorf("[%v] cannot read conversion result. %v", val.Name, err)
+				}
+
+				// if there's a returned result
+				if len(rslt) > 0 && status {
+
+					val.Result = rslt
+
+					done <- val
+				}
+
+				return nil
+			}()
+
+			// handle error
 			if err != nil {
-				fmt.Printf("[%v] cannot read conversion result. %v\n", val.Name, err)
-			}
-
-			// if there's a returned result
-			if len(rslt) > 0 && status {
-
-				val.Result = rslt
-
-				done <- val
+				log.Println(err)
+				eChan <- 1
 			}
 
 		}(ctx, k, done, errChan)
@@ -175,7 +182,7 @@ func convert() {
 			fmt.Printf("%v %v\n", res.To, res.Result)
 			os.Exit(0)
 		case <-ctx.Done():
-			// both conversion services must have failed or took too long
+			// services must have failed or took too long
 			log.Fatalf("Conversion services timed out!")
 		case _, ok := <-errChan:
 			if ok {
